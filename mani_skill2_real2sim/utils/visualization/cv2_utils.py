@@ -63,6 +63,7 @@ class OpenCVViewer:
                 else:
                     return None
             elif key == -1:  # timeout
+                # return None
                 pass
             else:
                 return chr(key)

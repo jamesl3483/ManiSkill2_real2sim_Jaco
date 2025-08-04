@@ -1,4 +1,8 @@
 """
+Example)
+
+
+
 Visualize and manually control the robot in an environment, useful for debugging purposes.
 
 Controls:
@@ -24,64 +28,20 @@ To debug an environment, you can modify the "env_reset_options" in the main func
 
 **Example Scripts:**
 
-cd {this_repo}/ManiSkill2_real2sim
-
-# Prepackaged Envs
-# Hint: "prepackaged_config @True" means using the default visual matching environment configs;
-#       Press "v" to visualize policy observation under visual matching
-
-python mani_skill2_real2sim/examples/demo_manual_control_custom_envs.py -e GraspSingleOpenedCokeCanInScene-v0 \
-    -c arm_pd_ee_delta_pose_align_interpolate_by_planner_gripper_pd_joint_target_delta_pos_interpolate_by_planner -o rgbd \
-    --enable-sapien-viewer     prepackaged_config @True     robot google_robot_static
-# replace "GraspSingleOpenedCokeCanInScene-v0" with "MoveNearGoogleBakedTexInScene-v1", "OpenDrawerCustomInScene-v0", "CloseDrawerCustomInScene-v0" to test other envs
-# for "MoveNearGoogleBakedTexInScene-v1", we also support "-v0". "-v0" uses assets with textures baked onto a single view of each object, 
-# whereas "-v1" applies baked textures to all views of objects using Zero123++.
-
-python mani_skill2_real2sim/examples/demo_manual_control_custom_envs.py -e PlaceIntoClosedDrawerCustomInScene-v0 \
-    -c arm_pd_ee_delta_pose_align_interpolate_by_planner_gripper_pd_joint_target_delta_pos_interpolate_by_planner -o rgbd \
-    --enable-sapien-viewer     prepackaged_config @True     robot google_robot_static   model_ids baked_apple_v2
-
-python mani_skill2_real2sim/examples/demo_manual_control_custom_envs.py -e PutCarrotOnPlateInScene-v0 --enable-sapien-viewer \
-    -c arm_pd_ee_delta_pose_align2_gripper_pd_joint_pos -o rgbd --enable-sapien-viewer     prepackaged_config @True     robot widowx
-# replace "PutCarrotOnPlateInScene-v0" with "PutSpoonOnTableClothInScene-v0", "StackGreenCubeOnYellowCubeBakedTexInScene-v0", 
-#         "PutEggplantInBasketScene-v0" to test other Bridge environments
-
-# Envs constructed through manual config setup
-# "rgb_overlay_mode debug" means to visualize 0.5*real image + 0.5*sim image, helpful for examining the alignment of the real table and the simulation proxy table
-
-python mani_skill2_real2sim/examples/demo_manual_control_custom_envs.py -e GraspSingleOpenedCokeCanInScene-v0 \
-    -c arm_pd_ee_delta_pose_align_interpolate_by_planner_gripper_pd_joint_target_delta_pos_interpolate_by_planner -o rgbd --enable-sapien-viewer \
-    robot google_robot_static sim_freq @501 control_freq @3 scene_name google_pick_coke_can_1_v4 \
-    rgb_overlay_mode debug rgb_overlay_path data/real_inpainting/google_coke_can_real_eval_1.png rgb_overlay_cameras overhead_camera
-    
-python mani_skill2_real2sim/examples/demo_manual_control_custom_envs.py -e MoveNearGoogleInScene-v0 \
-    -c arm_pd_ee_delta_pose_align_interpolate_by_planner_gripper_pd_joint_target_delta_pos_interpolate_by_planner --enable-sapien-viewer \
-    -o rgbd robot google_robot_static sim_freq @501 control_freq @3 scene_name google_pick_coke_can_1_v4 \
-    rgb_overlay_mode debug rgb_overlay_path data/real_inpainting/google_move_near_real_eval_1.png rgb_overlay_cameras overhead_camera
-    
-python mani_skill2_real2sim/examples/demo_manual_control_custom_envs.py -e MoveNearGoogleBakedTexInScene-v1 \
-    -c arm_pd_ee_delta_pose_align_interpolate_by_planner_gripper_pd_joint_target_delta_pos_interpolate_by_planner --enable-sapien-viewer \
-    -o rgbd robot google_robot_static sim_freq @501 control_freq @3 scene_name google_pick_coke_can_1_v4 \
-    rgb_overlay_mode debug rgb_overlay_path data/real_inpainting/google_move_near_real_eval_1.png rgb_overlay_cameras overhead_camera urdf_version recolor_tabletop_visual_matching_2
-    
-python mani_skill2_real2sim/examples/demo_manual_control_custom_envs.py -e OpenDrawerCustomInScene-v0 \
-    -c arm_pd_ee_delta_pose_align_interpolate_by_planner_gripper_pd_joint_target_delta_pos_interpolate_by_planner --enable-sapien-viewer \
+# Google Robot
+python mani_skill2_real2sim/examples/jaco_get_water.py -e GetWaterCustomInScene-v0 -c\
+    arm_pd_ee_delta_pose_align_interpolate_by_planner_gripper_pd_joint_pos  --enable-sapien-viewer \
     -o rgbd robot google_robot_static sim_freq @501 control_freq @3 scene_name frl_apartment_stage_simple \
-    rgb_overlay_mode debug rgb_overlay_path data/real_inpainting/open_drawer_b0.png rgb_overlay_cameras overhead_camera
-    
-python mani_skill2_real2sim/examples/demo_manual_control_custom_envs.py -e PlaceIntoClosedDrawerCustomInScene-v0 \
-    -c arm_pd_ee_delta_pose_align_interpolate_by_planner_gripper_pd_joint_target_delta_pos_interpolate_by_planner --enable-sapien-viewer \
-    -o rgbd robot google_robot_static sim_freq @501 control_freq @3 scene_name frl_apartment_stage_simple \
-    rgb_overlay_mode debug rgb_overlay_path data/real_inpainting/open_drawer_b0.png rgb_overlay_cameras overhead_camera model_ids baked_apple_v2
-    
-python mani_skill2_real2sim/examples/demo_manual_control_custom_envs.py -e PutCarrotOnPlateInScene-v0 --enable-sapien-viewer \
-    -c arm_pd_ee_target_delta_pose_align2_gripper_pd_joint_pos -o rgbd robot widowx sim_freq @500 control_freq @5 \
-    scene_name bridge_table_1_v1  rgb_overlay_mode debug rgb_overlay_path data/real_inpainting/bridge_real_eval_1.png rgb_overlay_cameras 3rd_view_camera
-# replace "PutCarrotOnPlateInScene-v0" with "PutSpoonOnTableClothInScene-v0", "StackGreenCubeOnYellowCubeInScene-v0" to test other Bridge environments
-    
-python mani_skill2_real2sim/examples/demo_manual_control_custom_envs.py -e PutEggplantInBasketScene-v0 --enable-sapien-viewer \
-    -c arm_pd_ee_target_delta_pose_align2_gripper_pd_joint_pos -o rgbd robot widowx_sink_camera_setup sim_freq @500 control_freq @5 \
-    scene_name bridge_table_1_v2  rgb_overlay_mode debug rgb_overlay_path data/real_inpainting/bridge_sink.png rgb_overlay_cameras 3rd_view_camera
+    rgb_overlay_mode debug rgb_overlay_path data/real_inpainting/open_drawer_b0.png rgb_overlay_cameras \
+    overhead_camera model_ids a_cups
+
+
+# JACO
+python mani_skill2_real2sim/examples/jaco_get_water.py -e GetWaterCustomInScene-v0 -c \
+    arm_pd_ee_delta_pose_align_interpolate_by_planner_gripper_pd_joint_pos  --enable-sapien-viewer \
+    -o rgbd robot jaco sim_freq @501 control_freq @3 scene_name frl_apartment_stage_simple rgb_overlay_mode debug \
+    rgb_overlay_path data/real_inpainting/open_drawer_b0.png rgb_overlay_cameras 3rd_view_camera model_ids a_cups
+
 
 """
 
@@ -90,6 +50,7 @@ import argparse
 import gymnasium as gym
 import numpy as np
 from transforms3d.quaternions import qmult
+import time
 
 from mani_skill2_real2sim.envs.sapien_env import BaseEnv
 from mani_skill2_real2sim.utils.visualization.cv2_utils import OpenCVViewer
@@ -139,13 +100,11 @@ def main():
             args.env_kwargs["render_camera_cfgs"] = {
                 "render_camera": dict(p=pose.p, q=pose.q)
             }
-        elif "widowx" in args.env_kwargs["robot"]:
+        elif "jaco" in args.env_kwargs["robot"]:
             pose = look_at([1.0, 1.0, 2.0], [0.0, 0.0, 0.7])
             args.env_kwargs["render_camera_cfgs"] = {
                 "render_camera": dict(p=pose.p, q=pose.q)
             }
-
-    from transforms3d.euler import euler2quat
 
     env: BaseEnv = gym.make(
         args.env_id,
@@ -170,77 +129,15 @@ def main():
         names_in_env_id_fxn = lambda name_list: any(
             name in args.env_id for name in name_list
         )
-        if names_in_env_id_fxn(["GraspSingle"]):
-            init_rot_quat = (Pose(q=[0, 0, 0, 1])).q
-            env_reset_options = {
-                "obj_init_options": {"init_xy": [-0.12, 0.2]},
-                "robot_init_options": {
-                    "init_xy": [0.35, 0.20],
-                    "init_rot_quat": init_rot_quat,
-                },
-            }
-        elif names_in_env_id_fxn(["MoveNear"]):
-            # data/real_inpainting/google_move_near_real_eval_1.png
-            init_rot_quat = (Pose(q=euler2quat(0, 0, -0.09)) * Pose(q=[0, 0, 0, 1])).q
-            env_reset_options = {
-                "obj_init_options": {},
-                "robot_init_options": {
-                    "init_xy": [0.35, 0.21],
-                    "init_rot_quat": init_rot_quat,
-                },
-            }
-            # data/real_inpainting/google_move_near_real_eval_2.png
-            # init_rot_quat = (Pose(q=euler2quat(0, 0, -0.028)) * Pose(q=[0, 0, 0, 1])).q
-            # env_reset_options={'obj_init_options': {},
-            #                    'robot_init_options': {'init_xy': [0.36, 0.22], 'init_rot_quat': init_rot_quat}}
-
-            env_reset_options["obj_init_options"]["episode_id"] = 0
-        elif names_in_env_id_fxn(["Drawer"]):
-            init_rot_quat = [0, 0, 0, 1]
-            if not names_in_env_id_fxn(["PlaceInClosedDrawer"]):
-                init_xy = [0.851, 0.035]
-            else:
-                init_xy = [0.652, 0.009]
-            env_reset_options = {
-                "obj_init_options": {"init_xy": [0.0, 0.0]},
-                "robot_init_options": {
-                    "init_xy": init_xy,
-                    "init_rot_quat": init_rot_quat,
-                },
-            }
-        elif names_in_env_id_fxn(
-            ["PutSpoonOnTableCloth", "PutCarrotOnPlate", "StackGreenCubeOnYellowCube", "PutEggplantInBasket"]
-        ):
-            init_rot_quat = Pose(q=[0, 0, 0, 1]).q
-            # env_reset_options={'obj_init_options': {},
-            #                    'robot_init_options': {'init_xy': [0.147, 0.028], 'init_rot_quat': init_rot_quat}}
-            # 'robot_init_options': {'init_xy': [0.147, 0.028], 'init_height': 0.860, 'init_rot_quat': init_rot_quat}}
-            # init_rot_quat = (Pose(q=euler2quat(0, 0, 0.03)) * Pose(q=[0, 0, 0, 1])).q
-            if env.robot_uid == "widowx":
-                env_reset_options = {
-                    "obj_init_options": {},
-                    "robot_init_options": {
-                        "init_xy": [0.147, 0.028],
-                        "init_rot_quat": init_rot_quat,
-                    },
-                }
-            elif env.robot_uid == "widowx_camera_setup2":
-                env_reset_options = {
-                    "obj_init_options": {},
-                    "robot_init_options": {
-                        "init_xy": [0.147, 0.070],
-                        "init_rot_quat": init_rot_quat,
-                    },
-                }
-            elif env.robot_uid == "widowx_sink_camera_setup":
-                env_reset_options = {
-                    "obj_init_options": {},
-                    "robot_init_options": {
-                        "init_xy": [0.127, 0.060],
-                        "init_rot_quat": init_rot_quat,
-                    },
-                }
-            env_reset_options["obj_init_options"]["episode_id"] = 0
+        init_rot_quat = [0, 0, 0, 1]
+        init_xy = [0.452, -0.609] # Change the robot's position
+        env_reset_options = {
+            "obj_init_options": {"init_xy": [-.09, 0.0]}, # Change the object's position
+            "robot_init_options": {
+                "init_xy": init_xy,
+                "init_rot_quat": init_rot_quat,
+            },
+        }
 
     obs, info = env.reset(options=env_reset_options)
     print("Reset info:", info)
@@ -257,7 +154,7 @@ def main():
             env.agent.robot.pose.inv()
             * env.unwrapped._cameras["overhead_camera"].camera.pose,
         )
-    elif "wx250s" in env.agent.robot.name:
+    elif "jaco" in env.agent.robot.name:
         print(
             "3rd view camera pose",
             env.unwrapped._cameras["3rd_view_camera"].camera.pose,
@@ -267,6 +164,8 @@ def main():
             env.agent.robot.pose.inv()
             * env.unwrapped._cameras["3rd_view_camera"].camera.pose,
         )
+
+
     print("robot pose", env.agent.robot.pose)
     # env.obj.get_collision_shapes()[0].get_physical_material().static_friction / dynamic_friction / restitution # object material properties
 
@@ -315,7 +214,14 @@ def main():
     # print("obj pose", env.obj.pose, "tcp pose", env.tcp.pose)
     print("qpos", env.agent.robot.get_qpos())
 
+
+    # velocity control
+    velocity_control_pos = [0,0,0]
+    velocity_control_rot = [0,0,0]
+
+
     while True:
+        time.sleep(0.01) 
         # -------------------------------------------------------------------------- #
         # Visualization
         # -------------------------------------------------------------------------- #
@@ -335,7 +241,9 @@ def main():
         # Interaction
         # -------------------------------------------------------------------------- #
         # Input
-        key = opencv_viewer.imshow(render_frame)
+        # key = opencv_viewer.imshow(image=render_frame, delay=1, non_blocking=True)
+        key = opencv_viewer.imshow(image=render_frame, delay=10)
+        # key = opencv_viewer.imshow(render_frame)
 
         if has_base:
             base_action = np.zeros([4])  # hardcoded
@@ -357,52 +265,97 @@ def main():
             raise NotImplementedError(args.control_mode)
 
         # Base
-        if has_base:
-            if key == "w":  # forward
-                base_action[0] = 1
-            elif key == "s":  # backward
-                base_action[0] = -1
-            elif key == "a":  # left
-                base_action[1] = 1
-            elif key == "d":  # right
-                base_action[1] = -1
-            elif key == "q" and len(base_action > 2):  # rotate counter
-                base_action[2] = 1
-            elif key == "e" and len(base_action > 2):  # rotate clockwise
-                base_action[2] = -1
-            elif key == "z" and len(base_action > 2):  # lift
-                base_action[3] = 1
-            elif key == "x" and len(base_action > 2):  # lower
-                base_action[3] = -1
+        # if has_base:
+        #     if key == "w":  # forward
+        #         base_action[0] = 1
+        #     elif key == "s":  # backward
+        #         base_action[0] = -1
+        #     elif key == "a":  # left
+        #         base_action[1] = 1
+        #     elif key == "d":  # right
+        #         base_action[1] = -1
+        #     elif key == "q" and len(base_action > 2):  # rotate counter
+        #         base_action[2] = 1
+        #     elif key == "e" and len(base_action > 2):  # rotate clockwise
+        #         base_action[2] = -1
+        #     elif key == "z" and len(base_action > 2):  # lift
+        #         base_action[3] = 1
+        #     elif key == "x" and len(base_action > 2):  # lower
+        #         base_action[3] = -1
+
+        velocity_active = True
 
         # End-effector
         if num_arms > 0:
+
+            # if velocity_active is true, they you change the velocity array that will be applied to the end-effector position at the end
             # Position
-            if key == "i":  # +x
-                ee_action[0] = EE_ACTION
-            elif key == "k":  # -x
-                ee_action[0] = -EE_ACTION
-            elif key == "j":  # +y
-                ee_action[1] = EE_ACTION
-            elif key == "l":  # -y
-                ee_action[1] = -EE_ACTION
-            elif key == "u":  # +z
-                ee_action[2] = EE_ACTION
-            elif key == "o":  # -z
-                ee_action[2] = -EE_ACTION
+            if key == "1":  # +x
+                if velocity_active:
+                    velocity_control_pos[0] = EE_ACTION 
+                else:
+                    ee_action[0] = EE_ACTION
+                
+            elif key == "3":  # -x
+                if velocity_active:
+                    velocity_control_pos[0] = -EE_ACTION
+                else:
+                    ee_action[0] = -EE_ACTION
+            elif key == "2":  # +y
+                if velocity_active:
+                    velocity_control_pos[1] = EE_ACTION 
+                else:
+                    ee_action[1] = EE_ACTION
+            elif key == "4":  # -y
+                if velocity_active:
+                    velocity_control_pos[1] = -EE_ACTION 
+                else:
+                    ee_action[1] = -EE_ACTION
+            elif key == "5":  # +z
+                if velocity_active:
+                    velocity_control_pos[2] = EE_ACTION 
+                else:
+                    ee_action[2] = EE_ACTION
+            elif key == "6":  # -z
+                if velocity_active:
+                    velocity_control_pos[2] = -EE_ACTION 
+                else:
+                    ee_action[2] = -EE_ACTION
+
+            if velocity_active:
+                if velocity_control_pos[0] > 0:
+                    velocity_control_pos[0] -= EE_ACTION/4.0
+                elif velocity_control_pos[0] < 0:
+                    velocity_control_pos[0] += EE_ACTION/4.0
+                if velocity_control_pos[1] > 0:
+                    velocity_control_pos[1] -= EE_ACTION/4.0
+                elif velocity_control_pos[1] < 0:
+                    velocity_control_pos[1] += EE_ACTION/4.0
+                if velocity_control_pos[2] > 0:
+                    velocity_control_pos[2] -= EE_ACTION/4.0
+                elif velocity_control_pos[2] < 0:
+                    velocity_control_pos[2] += EE_ACTION/4.0
+
+                VEL_THRESHOLD = 1e-4
+                for i in range(3):  # x, y, z
+                    if abs(velocity_control_pos[i]) < VEL_THRESHOLD:
+                        velocity_control_pos[i] = 0.0
+
+                ee_action[0:3] = velocity_control_pos
+
 
             # Rotation (axis-angle)
-            if key == "1":
+            if key == "q":
                 ee_action[3:6] = (EE_ROT_ACTION, 0, 0)
-            elif key == "2":
+            elif key == "e":
                 ee_action[3:6] = (-EE_ROT_ACTION, 0, 0)
-            elif key == "3":
+            elif key == "w":
                 ee_action[3:6] = (0, EE_ROT_ACTION, 0)
-            elif key == "4":
+            elif key == "s":
                 ee_action[3:6] = (0, -EE_ROT_ACTION, 0)
-            elif key == "5":
+            elif key == "a":
                 ee_action[3:6] = (0, 0, EE_ROT_ACTION)
-            elif key == "6":
+            elif key == "d":
                 ee_action[3:6] = (0, 0, -EE_ROT_ACTION)
 
         # Gripper
@@ -429,7 +382,31 @@ def main():
             after_reset = True
             continue
         elif key == None:  # exit
-            break
+            # print("Exit")
+            if velocity_active:
+                pass
+            else:
+                continue
+
+        elif key == "t": # home position
+            from transforms3d.euler import quat2euler
+
+            # Get the action difference to the target pose
+            goal = [0.0126156, -0.390583, 1.04092] # pos
+            rot = quat2euler([0.0324987, -0.780173, -0.603852, 0.160115]) # convert quaternion to euler angles
+            goal = np.array(np.concatenate([goal, rot]))
+            current = np.array(np.array(env.tcp.pose.p)[:3].tolist() + np.array(quat2euler(env.tcp.pose.q)).tolist())
+            ee_action = current - goal
+
+            # Normalize the action
+            if np.sum(np.abs(ee_action[:3])) < 0.01 and np.sum(np.abs(ee_action[3:])) < 0.01:
+                ee_action = np.zeros(6)
+            else:
+                ee_action = ee_action / np.linalg.norm(ee_action) * EE_ACTION
+
+            # print("ee_action", ee_action)
+
+
 
         # Visualize observation
         if key == "v":
@@ -460,22 +437,11 @@ def main():
         # -------------------------------------------------------------------------- #
         # Post-process action
         # -------------------------------------------------------------------------- #
-        if args.env_id in MS1_ENV_IDS:
-            if is_google_robot:
-                raise NotImplementedError()
-            action_dict = dict(
-                base=base_action,
-                right_arm=ee_action,
-                right_gripper=gripper_action,
-                left_arm=np.zeros_like(ee_action),
-                left_gripper=np.zeros_like(gripper_action),
-            )
-            action = env.agent.controller.from_action_dict(action_dict)
-        else:
-            action_dict = dict(base=base_action, arm=ee_action)
-            if has_gripper:
-                action_dict["gripper"] = gripper_action
-            action = env.agent.controller.from_action_dict(action_dict)
+        # print("starting post-process action")
+        action_dict = dict(base=base_action, arm=ee_action)
+        if has_gripper:
+            action_dict["gripper"] = gripper_action
+        action = env.agent.controller.from_action_dict(action_dict)
 
         print("action", action)
         obs, reward, terminated, truncated, info = env.step(action)
@@ -483,10 +449,10 @@ def main():
         if is_gripper_delta_target_control:
             gripper_action = 0
 
-        # print("obj pose", env.obj.pose, "tcp pose", env.tcp.pose)
-        print("tcp pose wrt robot base", env.agent.robot.pose.inv() * env.tcp.pose)
+        print("obj pose", env.obj.pose, "tcp pose", env.tcp.pose)
+        # print("tcp pose wrt robot base", env.agent.robot.pose.inv() * env.tcp.pose)
         print("qpos", env.agent.robot.get_qpos())
-        print("reward", reward)
+        # print("reward", reward)
         print("terminated", terminated, "truncated", truncated)
         print("info", info)
 

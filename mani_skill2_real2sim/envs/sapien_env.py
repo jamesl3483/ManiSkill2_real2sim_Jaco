@@ -606,8 +606,10 @@ class BaseEnv(gym.Env):
         )  # **This is crucial for preventing mesh penetration for google robot**
         # NOTE(fanbo): solver_velocity_iterations=0 is undefined in PhysX
         scene_config.solver_velocity_iterations = 1
-        if self._renderer_type == "client":
-            scene_config.disable_collision_visual = True
+        scene_config.disable_collision_visual = False
+        # if self._renderer_type == "client":
+        #     scene_config.disable_collision_visual = True
+
         return scene_config
 
     def _setup_scene(self, scene_config: Optional[sapien.SceneConfig] = None):

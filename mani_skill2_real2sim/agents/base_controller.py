@@ -261,6 +261,8 @@ class CombinedController(DictController):
 
     def set_action(self, action: np.ndarray):
         # Sanity check
+
+        print("action space:",action)
         action_dim = self.action_space.shape[0]
         assert action.shape == (action_dim,), (action.shape, action_dim)
 

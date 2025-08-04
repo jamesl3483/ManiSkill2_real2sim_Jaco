@@ -1,0 +1,168 @@
+
+<?xml version="1.0"?>
+<robot name="simple_cabinet_robot">
+
+
+
+  <link name="simple_cabinet">
+    <collision name="body_back_collision">
+      <origin rpy="0.00000 0.00000 0.00000" xyz="-0.30500 0.00000 0.42250"/>
+      <geometry>
+        <box size="0.02000 0.61500 0.84500"/>
+      </geometry>
+    </collision>
+    <visual name="body_back">
+      <origin rpy="0.00000 0.00000 0.00000" xyz="-0.30500 0.00000 0.42250"/>
+      <material name="gray_wooden"/>
+      <geometry>
+        <box size="0.02000 0.61500 0.84500"/>
+      </geometry>
+    </visual>
+    <collision name="body_left_collision">
+      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00000 -0.29750 0.42250"/>
+      <geometry>
+        <box size="0.59000 0.02000 0.84500"/>
+      </geometry>
+    </collision>
+    <visual name="body_left">
+      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00000 -0.29750 0.42250"/>
+      <material name="gray_wooden"/>
+      <geometry>
+        <box size="0.59000 0.02000 0.84500"/>
+      </geometry>
+    </visual>
+    <collision name="body_right_collision">
+      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00000 0.29750 0.42250"/>
+      <geometry>
+        <box size="0.59000 0.02000 0.84500"/>
+      </geometry>
+    </collision>
+    <visual name="body_right">
+      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00000 0.29750 0.42250"/>
+      <material name="gray_wooden"/>
+      <geometry>
+        <box size="0.59000 0.02000 0.84500"/>
+      </geometry>
+    </visual>
+    <collision name="tabletop_collision">
+      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00000 0.00000 0.85500"/>
+      <geometry>
+        <box size="0.63000 0.61500 0.02000"/>
+      </geometry>
+    </collision>
+    <visual name="tabletop">
+      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00000 0.00000 0.85500"/>
+      <material name="stone"/>
+      <geometry>
+        <box size="0.63000 0.61500 0.02000"/>
+      </geometry>
+    </visual>
+    <collision name="shelf_collision">
+      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00000 0.00000 0.42250"/>
+      <geometry>
+        <box size="0.61000 0.59500 0.02000"/>
+      </geometry>
+    </collision>
+    <visual name="shelf">
+      <origin rpy="0.00000 0.00000 0.00000" xyz="0.00000 0.00000 0.42250"/>
+      <material name="stone"/>
+      <geometry>
+        <box size="0.61000 0.59500 0.02000"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <!-- Door Link -->
+  <link name="cabinet_door">
+    <collision name="body_back_collision">
+        <origin rpy="0.00000 0.00000 0.00000" xyz="0.0 -.307500 0.0"/>
+        <geometry>
+            <box size="0.02000 0.61500 0.84500"/>
+        </geometry>
+    </collision>
+    <visual name="body_back">
+        <origin rpy="0.00000 0.00000 0.00000" xyz="0.0 -.307500 0.0"/>
+        <material name="gray_wooden"/>
+        <geometry>
+            <box size="0.02000 0.61500 0.84500"/>
+        </geometry>
+    </visual>
+
+    <!-- Handle bar -->
+    <visual name="cabinet_handle">
+      <geometry>
+        <box size="0.03 0.03 0.400"/>
+      </geometry>
+      <origin xyz="0.06 -.5700 0.0" rpy="0 0 1.57"/>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.03 0.03 0.400"/>
+      </geometry>
+      <origin xyz="0.06 -.570 0.0" rpy="0 0 1.57"/>
+
+    </collision>
+
+    <!-- Handle sides -->
+    <visual>
+      <geometry>
+        <box size="0.03 0.03 0.03"/>
+      </geometry>
+      <origin xyz="0.03 -.570 0.17" rpy="0 0 1.57"/>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.03 0.03 0.03"/>
+      </geometry>
+      <origin xyz="0.03 -.570 0.17" rpy="0 0 1.57"/>
+    </collision>
+
+    <visual>
+      <geometry>
+        <box size="0.03 0.03 0.03"/>
+      </geometry>
+      <origin xyz="0.03 -.570 -0.17" rpy="0 0 1.57"/>
+      <material name="black"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.03 0.03 0.03"/>
+      </geometry>
+      <origin xyz="0.03 -.570 -0.17" rpy="0 0 1.57"/>
+    </collision>
+
+    <inertial>
+      <mass value="2.0"/>
+      <inertia ixx="0.01" ixy="0.0" ixz="0.0" iyy="0.01" iyz="0.0" izz="0.01"/>
+      <origin xyz="0.5 0 0.75"/>
+    </inertial>
+  </link>
+
+
+    <!-- Revolute Joint for Door -->
+    <joint name="cabinet_door_joint" type="revolute">
+    <parent link="simple_cabinet"/>
+    <child link="cabinet_door"/>
+        <origin xyz="0.30500 0.29750 0.42250" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/> <!-- Rotate around vertical Z-axis -->
+    <limit lower="0" upper="3.14" effort="0.0" velocity="0.0"/>
+    </joint>
+
+  <material name="gray_wooden">
+    <color rgba="0.38824 0.32157 0.27451 1.00000"/>
+  </material>
+  <material name="stone">
+    <color rgba="0.63529 0.52941 0.41176 1.00000"/>
+  </material>
+  <material name="white_wooden">
+    <color rgba="1.00000 1.00000 1.00000 1.00000"/>
+  </material>
+  <material name="black">
+    <color rgba="0.10000 0.10000 0.10000 1.00000"/>
+  </material>
+    <material name="silver">
+    <color rgba="0.8 0.8 0.8 1.0"/>
+    </material>
+</robot>

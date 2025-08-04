@@ -17,10 +17,10 @@ from mani_skill2_real2sim.utils.sapien_utils import (
 )
 
 from .base_env import CustomOtherObjectsInSceneEnv, CustomSceneEnv
-from .open_drawer_in_scene import OpenDrawerInSceneEnv
+from .open_door_in_scene import OpenDoorInSceneEnv
 
 
-class PlaceObjectInClosedDrawerInSceneEnv(OpenDrawerInSceneEnv):
+class GetWaterInSceneEnv(OpenDoorInSceneEnv):
 
     def __init__(
         self,
@@ -102,6 +102,8 @@ class PlaceObjectInClosedDrawerInSceneEnv(OpenDrawerInSceneEnv):
         if obj_init_xy is None:
             obj_init_xy = self._episode_rng.uniform([-0.10, -0.00], [-0.05, 0.1], [2])
         obj_init_z = self.obj_init_options.get("init_z", self.scene_table_height)
+        if obj_init_z is None:
+            obj_init_z = 1.5 
         obj_init_z = obj_init_z + 0.5  # let object fall onto the table
         obj_init_rot_quat = self.obj_init_options.get("init_rot_quat", [1, 0, 0, 0])
         p = np.hstack([obj_init_xy, obj_init_z])
@@ -126,7 +128,7 @@ class PlaceObjectInClosedDrawerInSceneEnv(OpenDrawerInSceneEnv):
 
         # Move the robot far away to avoid collision
         # The robot should be initialized later in _initialize_agent (in base_env.py)
-        self.agent.robot.set_pose(sapien.Pose([-10 , 0, 0]))
+        self.agent.robot.set_pose(sapien.Pose([-10, 0, 0]))
 
         # Lock rotation around x and y to let the target object fall onto the table
         self.obj.lock_motion(0, 0, 0, 1, 1, 0)
@@ -150,6 +152,7 @@ class PlaceObjectInClosedDrawerInSceneEnv(OpenDrawerInSceneEnv):
         self.obj_height_after_settle = self.obj.pose.p[2]
 
     def reset(self, seed=None, options=None):
+        print("reseting GetWaterInSceneEnv")
         if options is None:
             options = dict()
         options = options.copy()
@@ -166,9 +169,14 @@ class PlaceObjectInClosedDrawerInSceneEnv(OpenDrawerInSceneEnv):
 
         obs, info = super().reset(seed=self._episode_seed, options=options)
         self.drawer_link: sapien.Link = get_entity_by_name(
-            self.art_obj.get_links(), f"{self.drawer_id}_drawer"
+            self.art_obj.get_links(), f"simple_{self.drawer_id}"
         )
-        self.drawer_collision = self.drawer_link.get_collision_shapes()[2]
+        # print(f"drawer link: {self.drawer_link.name}")
+        # print(f"drawer link collision shapes: {self.drawer_link.get_collision_shapes()}")
+        # Get the first collision shape of the drawer link
+
+
+        self.drawer_collision = self.drawer_link.get_collision_shapes()[0]
 
         return obs, info
 
@@ -257,28 +265,16 @@ class PlaceObjectInClosedDrawerInSceneEnv(OpenDrawerInSceneEnv):
         return self.cur_subtask_id == 1
 
 
-@register_env("PlaceIntoClosedDrawerCustomInScene-v0", max_episode_steps=200)
-class PlaceIntoClosedDrawerCustomInSceneEnv(
-    PlaceObjectInClosedDrawerInSceneEnv, CustomOtherObjectsInSceneEnv
+@register_env("GetWaterInScene-v0", max_episode_steps=200)
+class GetWaterTopInSceneEnv(
+    GetWaterInSceneEnv, CustomOtherObjectsInSceneEnv
 ):
     DEFAULT_MODEL_JSON = "info_pick_custom_baked_tex_v1.json"
     drawer_ids = ["top", "middle", "bottom"]
 
 
-@register_env("PlaceIntoClosedTopDrawerCustomInScene-v0", max_episode_steps=200)
-class PlaceIntoClosedTopDrawerCustomInSceneEnv(PlaceIntoClosedDrawerCustomInSceneEnv):
-    drawer_ids = ["top"]
+@register_env("GetWaterCustomInScene-v0", max_episode_steps=200)
+class GetWaterCustomInSceneEnv(GetWaterTopInSceneEnv):
+    drawer_ids = ["cabinet"]
 
 
-@register_env("PlaceIntoClosedMiddleDrawerCustomInScene-v0", max_episode_steps=200)
-class PlaceIntoClosedMiddleDrawerCustomInSceneEnv(
-    PlaceIntoClosedDrawerCustomInSceneEnv
-):
-    drawer_ids = ["middle"]
-
-
-@register_env("PlaceIntoClosedBottomDrawerCustomInScene-v0", max_episode_steps=200)
-class PlaceIntoClosedBottomDrawerCustomInSceneEnv(
-    PlaceIntoClosedDrawerCustomInSceneEnv
-):
-    drawer_ids = ["bottom"]

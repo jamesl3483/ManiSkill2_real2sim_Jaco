@@ -17,6 +17,7 @@ from mani_skill2_real2sim.agents.robots.googlerobot import (
 )
 from mani_skill2_real2sim.agents.robots.widowx import WidowX, WidowXBridgeDatasetCameraSetup, WidowXSinkCameraSetup
 from mani_skill2_real2sim.agents.robots.panda import Panda
+from mani_skill2_real2sim.agents.robots.jaco import Jaco, JacoBridgeDatasetCameraSetup, JacoSinkCameraSetup
 from mani_skill2_real2sim.envs.sapien_env import BaseEnv
 from mani_skill2_real2sim.sensors.camera import CameraConfig
 from mani_skill2_real2sim.utils.sapien_utils import (
@@ -28,6 +29,9 @@ from mani_skill2_real2sim.utils.sapien_utils import (
 
 class CustomSceneEnv(BaseEnv):
     SUPPORTED_ROBOTS = {"google_robot_static": GoogleRobotStaticBase, 
+                        "jaco": Jaco,
+                        "jaco_bridge_dataset_camera_setup": JacoBridgeDatasetCameraSetup,
+                        "jaco_sink_camera_setup": JacoSinkCameraSetup,
                         "widowx": WidowX,
                         "widowx_bridge_dataset_camera_setup": WidowXBridgeDatasetCameraSetup,
                         "widowx_sink_camera_setup": WidowXSinkCameraSetup,
@@ -41,7 +45,7 @@ class CustomSceneEnv(BaseEnv):
                         "google_robot_static_one_eighth_finger_friction": GoogleRobotStaticBaseOneEighthFingerFriction,
                         "google_robot_static_twice_finger_friction": GoogleRobotStaticBaseTwiceFingerFriction,
     }
-    agent: Union[GoogleRobotStaticBase, WidowX, Panda]
+    agent: Union[GoogleRobotStaticBase, Jaco, WidowX, Panda]
     DEFAULT_ASSET_ROOT: str
     DEFAULT_SCENE_ROOT: str
     DEFAULT_MODEL_JSON: str
@@ -145,6 +149,8 @@ class CustomSceneEnv(BaseEnv):
                 scene_path = str(self.scene_root / "stages/google_pick_coke_can_1_v4.glb") # hardcoded for now
             elif 'widowx' in self.robot_uid:
                 scene_path = str(self.scene_root / "stages/bridge_table_1_v1.glb") # hardcoded for now
+            elif 'jaco' in self.robot_uid:
+                scene_path = str(self.scene_root / "stages/jaco_tabletop_1_v1.glb")
             else:
                 raise NotImplementedError(f"Default scene path for {self.robot_uid} is not yet set")
         elif "dummy" in self.scene_name:
@@ -158,6 +164,8 @@ class CustomSceneEnv(BaseEnv):
                 scene_offset = np.array([-1.6616, -3.0337, 0.0]) # corresponds to the default offset of google_pick_coke_can_1_v4.glb
             elif 'widowx' in self.robot_uid:
                 scene_offset = np.array([-2.0634, -2.8313, 0.0])# corresponds to the default offset of bridge_table_1_v1.glb
+            elif 'jaco' in self.robot_uid:
+                scene_offset = np.array([-1.6616, -3.0337, 0.0]) # corresponds to the default offset of jaco_tabletop_1_v1.glb
             else:
                 raise NotImplementedError(f"Default scene offset for {self.robot_uid} is not yet set")
         else:
@@ -291,11 +299,23 @@ class CustomSceneEnv(BaseEnv):
             else:
                 raise NotImplementedError(self.robot_uid)
             robot_init_rot_quat = [0, 0, 0, 1]
+        elif 'jaco' in self.robot_uid:
+            if self.robot_uid in ['jaco', 'jaco_bridge_dataset_camera_setup']:
+                print("Using Jaco default qpos")
+                qpos = np.array([3.2055, 2.9211, 1.9989, 4.2076, 1.4420, 1.3220, 0, 0, 0, 0])
+            robot_init_height = 0.0 # base height + ground offset in default scene
+            robot_init_rot_quat = [0, 0, 0, 1]
+
+            # robot_init_rot_quat = [0, 0, -0.7071, 0.7071] # 90 deg around z axis
+            # robot_init_rot_quat = [0, 0, -1, 0] # 180 deg around z axis
+
+
         else:
             raise NotImplementedError(self.robot_uid)
         
-        if self.robot_init_options.get("qpos", None) is not None:
-            qpos = self.robot_init_options["qpos"]
+        # if self.robot_init_options.get("qpos", None) is not None and qpos is not None:
+        #     qpos = self.robot_init_options["qpos"]
+        print("using qpos from robot init ", qpos)
         self.agent.reset(qpos)
         
         if self.robot_init_options.get("init_height", None) is not None:
@@ -305,6 +325,7 @@ class CustomSceneEnv(BaseEnv):
         
         if (robot_init_xy := self.robot_init_options.get("init_xy", None)) is not None:
             robot_init_xyz = [robot_init_xy[0], robot_init_xy[1], robot_init_height]
+            print("using robot init xy", robot_init_xy)
         else:
             if 'google_robot' in self.robot_uid:
                 init_x = self._episode_rng.uniform(0.30, 0.40)
@@ -317,6 +338,8 @@ class CustomSceneEnv(BaseEnv):
                     init_y = 0.070
             else:
                 init_x, init_y = 0.0, 0.0
+
+            print("manual setting")
             robot_init_xyz = [init_x, init_y, robot_init_height]
         
         self.agent.robot.set_pose(sapien.Pose(robot_init_xyz, robot_init_rot_quat))
@@ -372,6 +395,7 @@ class CustomSceneEnv(BaseEnv):
 
             for camera_name in self.rgb_overlay_cameras:
                 # obtain overlay mask based on segmentation info
+                # print("cameras for rgb overlay:", obs['image'])
                 assert 'Segmentation' in obs['image'][camera_name].keys(), 'Image overlay requires segment info in the observation!'
                 seg = obs['image'][camera_name]['Segmentation'] # (H, W, 4); [..., 0] is mesh-level; [..., 1] is actor-level; [..., 2:] is zero (unused)
                 actor_seg = seg[..., 1]
