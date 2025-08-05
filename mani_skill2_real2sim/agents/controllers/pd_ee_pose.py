@@ -18,6 +18,7 @@ class PDEEPosController(PDJointPosController):
     config: "PDEEPosControllerConfig"
 
     def _initialize_joints(self):
+        # print("PDEEPosController._initialize_joints")
         super()._initialize_joints()
 
         # Pinocchio model to compute IK
@@ -79,12 +80,16 @@ class PDEEPosController(PDJointPosController):
 
     def compute_target_pose(self, prev_ee_pose_at_base, action):
         # Keep the current rotation and change the position
+        # print("PDEEPosController.compute_target_pose")
+        # print("please print")
         if self.config.use_delta:
+            # print("PDEEPosController.compute_target_pose use_delta")
             delta_pose = sapien.Pose(action)
 
             if self.config.frame == "base":
                 target_pose = delta_pose * prev_ee_pose_at_base
             elif self.config.frame == "ee":
+                # print("PDEEPosController.compute_target_pose use_delta ee frame")
                 target_pose = prev_ee_pose_at_base * delta_pose
             else:
                 raise NotImplementedError(self.config.frame)
@@ -95,12 +100,14 @@ class PDEEPosController(PDJointPosController):
         return target_pose
 
     def set_action(self, action: np.ndarray):
+        # print("PDEEPosController.set_action", action)
         action = self._preprocess_action(action)
 
         self._step = 0
         self._start_qpos = self.qpos
 
         if self.config.use_target:
+            # print("PDEEPosController.set_action use_target")
             if self.config.delta_target_from_last_drive_target:
                 # print("set action", "last drive target", self._last_drive_qpos_targets, "last target qpos", self._target_qpos)
                 prev_ee_pose_at_base = self.compute_fk(self._last_drive_qpos_targets)
@@ -109,16 +116,20 @@ class PDEEPosController(PDJointPosController):
                 prev_ee_pose_at_base = self._target_pose
         else:
             prev_ee_pose_at_base = self.ee_pose_at_base
-
+            
+        # print("PDEEPosController.set_action prev_ee_pose_at_base", prev_ee_pose_at_base)
         self._target_pose = self.compute_target_pose(prev_ee_pose_at_base, action)
+        # print("PDEEPosController.set_action target_pose", self._target_pose)
         self._target_qpos = self.compute_ik(self._target_pose)
         if self._target_qpos is None:
             self._target_qpos = self._start_qpos
 
         if self.config.interpolate:
+            # print("PDEEPosController.set_action interpolate")
             self._setup_qpos_interpolation()
         else:
             self.set_drive_targets(self._target_qpos)
+    
 
     def get_state(self) -> dict:
         if self.config.use_target:

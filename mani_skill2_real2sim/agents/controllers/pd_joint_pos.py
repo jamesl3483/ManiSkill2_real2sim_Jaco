@@ -59,6 +59,7 @@ class PDJointPosController(BaseController):
             joint.set_drive_velocity_target(targets[i])
 
     def set_action(self, action: np.ndarray):
+        # print("PDJointPosController.set_action", action)
         action = self._preprocess_action(action)
 
         self._step = 0
@@ -95,6 +96,16 @@ class PDJointPosController(BaseController):
             self._setup_qpos_interpolation()
         else:
             self.set_drive_targets(self._target_qpos)
+
+        def set_target(self, target):
+            """Set the target pose for the end-effector."""
+            if not hasattr(self, "ik_solver"):
+                raise RuntimeError("IK solver is not initialized.")
+            self._target_qpos = self.ik_solver.solve(target)
+            if self.config.interpolate:
+                self._setup_qpos_interpolation()
+            else:
+                self.set_drive_targets(self._target_qpos)
 
     def _setup_qpos_interpolation(self):
         if self.config.interpolate_by_planner:

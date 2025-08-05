@@ -46,6 +46,7 @@ python mani_skill2_real2sim/examples/jaco_get_water.py -e GetWaterCustomInScene-
 """
 
 import argparse
+from operator import pos
 
 import gymnasium as gym
 import numpy as np
@@ -213,7 +214,7 @@ def main():
 
     # print("obj pose", env.obj.pose, "tcp pose", env.tcp.pose)
     print("qpos", env.agent.robot.get_qpos())
-
+    first_pose = env.tcp.pose   # save the home pose of the end-effector
 
     # velocity control
     velocity_control_pos = [0,0,0]
@@ -263,25 +264,6 @@ def main():
             ee_action = np.zeros([3])
         else:
             raise NotImplementedError(args.control_mode)
-
-        # Base
-        # if has_base:
-        #     if key == "w":  # forward
-        #         base_action[0] = 1
-        #     elif key == "s":  # backward
-        #         base_action[0] = -1
-        #     elif key == "a":  # left
-        #         base_action[1] = 1
-        #     elif key == "d":  # right
-        #         base_action[1] = -1
-        #     elif key == "q" and len(base_action > 2):  # rotate counter
-        #         base_action[2] = 1
-        #     elif key == "e" and len(base_action > 2):  # rotate clockwise
-        #         base_action[2] = -1
-        #     elif key == "z" and len(base_action > 2):  # lift
-        #         base_action[3] = 1
-        #     elif key == "x" and len(base_action > 2):  # lower
-        #         base_action[3] = -1
 
         velocity_active = True
 
@@ -391,21 +373,62 @@ def main():
         elif key == "t": # home position
             from transforms3d.euler import quat2euler
 
-            # Get the action difference to the target pose
-            goal = [0.0126156, -0.390583, 1.04092] # pos
-            rot = quat2euler([0.0324987, -0.780173, -0.603852, 0.160115]) # convert quaternion to euler angles
-            goal = np.array(np.concatenate([goal, rot]))
-            current = np.array(np.array(env.tcp.pose.p)[:3].tolist() + np.array(quat2euler(env.tcp.pose.q)).tolist())
-            ee_action = current - goal
+            from scipy.spatial.transform import Rotation as R
 
-            # Normalize the action
-            if np.sum(np.abs(ee_action[:3])) < 0.01 and np.sum(np.abs(ee_action[3:])) < 0.01:
-                ee_action = np.zeros(6)
-            else:
-                ee_action = ee_action / np.linalg.norm(ee_action) * EE_ACTION
+            # Target
+            goal_pos = np.array([0.0126156, -0.390583, 1.04092])
+            goal_rot = [0.0324987, -0.780173, -0.603852, 0.160115]
 
-            # print("ee_action", ee_action)
+            home_pose = Pose(p=goal_pos, q=goal_rot)
 
+            delta_pose = env.tcp.pose * first_pose.inv()
+            # rot = [delta_pose.q[3], delta_pose.q[0], delta_pose.q[1], delta_pose.q[2]]
+            rot = delta_pose.q
+            rot = R.from_quat(rot).as_rotvec()
+            min_rot = [min(abs(x), abs(np.pi-x)) for x in rot]
+            # print("changes", delta_pose )
+            # print("changes", min_rot )
+            # print("sum of rotation", np.sum(np.abs(np.array(min_rot))))
+            # print("delta pose", np.sum(np.abs(np.array(delta_pose.p))))
+
+
+            # print("rotation starting ............")
+            norm_pos = np.zeros(3)
+            norm_rot = np.zeros(3)
+
+            if np.linalg.norm(min_rot) > 0.2:  # overall rotation threshold
+
+                # Determine the axis with the largest absolute error
+                max_axis = np.argmax(np.abs(min_rot))  # 0 = roll, 1 = pitch, 2 = yaw
+                axis_error = rot[max_axis]
+
+                # Apply EE_ACTION only in the direction of that axis
+
+                if abs(axis_error) > 0.1:  # per-axis minimum threshold
+                    if max_axis == 0:
+                        norm_rot[2] = -1 * np.sign(axis_error) * EE_ACTION
+                    elif max_axis == 1:
+                        norm_rot[0] = np.sign(axis_error) * EE_ACTION
+                    elif max_axis == 2:
+                        norm_rot[1] = np.sign(axis_error) * EE_ACTION
+
+                # ee_action = np.concatenate([[0, 0, 0], norm_rot])
+
+            # print("translation starting ............") 
+            if abs(np.abs(delta_pose.p[0])) > 0.05:
+                norm_pos[0] =  delta_pose.p[0] / np.linalg.norm(delta_pose.p[1]) * EE_ACTION
+                # ee_action = np.concatenate([norm_pos, [0, 0, 0]])
+            elif abs(np.abs(delta_pose.p[1])) > 0.05:
+                norm_pos[1] =  delta_pose.p[1] / np.linalg.norm(delta_pose.p[1]) * EE_ACTION
+                # ee_action = np.concatenate([norm_pos, [0, 0, 0]])
+            elif abs(np.abs(delta_pose.p[2])) > 0.05:
+                norm_pos[2] =  delta_pose.p[2] / np.linalg.norm(delta_pose.p[2]) * EE_ACTION
+                # ee_action = np.concatenate([norm_pos, [0, 0, 0]])
+
+            ee_action = np.concatenate([norm_pos, norm_rot])
+
+            print("delta pose", delta_pose)
+            print("ee_action:", ee_action)
 
 
         # Visualize observation
@@ -443,18 +466,18 @@ def main():
             action_dict["gripper"] = gripper_action
         action = env.agent.controller.from_action_dict(action_dict)
 
-        print("action", action)
+        # print("action", action)
         obs, reward, terminated, truncated, info = env.step(action)
 
         if is_gripper_delta_target_control:
             gripper_action = 0
 
-        print("obj pose", env.obj.pose, "tcp pose", env.tcp.pose)
-        # print("tcp pose wrt robot base", env.agent.robot.pose.inv() * env.tcp.pose)
-        print("qpos", env.agent.robot.get_qpos())
-        # print("reward", reward)
-        print("terminated", terminated, "truncated", truncated)
-        print("info", info)
+        # print("obj pose", env.obj.pose, "tcp pose", env.tcp.pose)
+        # # print("tcp pose wrt robot base", env.agent.robot.pose.inv() * env.tcp.pose)
+        # print("qpos", env.agent.robot.get_qpos())
+        # # print("reward", reward)
+        # print("terminated", terminated, "truncated", truncated)
+        # print("info", info)
 
     env.close()
 

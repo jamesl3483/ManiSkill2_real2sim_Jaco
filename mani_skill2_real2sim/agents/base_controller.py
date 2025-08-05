@@ -109,6 +109,12 @@ class BaseController:
         The action can be low-level control signals or high-level abstract commands.
         """
         raise NotImplementedError
+    
+    def set_target(self, target_pose: sapien.Pose):
+        """Set the target pose for the controller.
+        This is used for high-level controllers like position control.
+        """
+        raise NotImplementedError
 
     def before_simulation_step(self):
         """Called before each simulation step in one control step."""
@@ -262,13 +268,17 @@ class CombinedController(DictController):
     def set_action(self, action: np.ndarray):
         # Sanity check
 
-        print("action space:",action)
+        # print("action space:",action)
         action_dim = self.action_space.shape[0]
         assert action.shape == (action_dim,), (action.shape, action_dim)
 
         for uid, controller in self.controllers.items():
             start, end = self.action_mapping[uid]
             controller.set_action(action[start:end])
+
+    def set_target(self, target_pose: sapien.Pose):
+        for uid, controller in self.controllers.items():
+            controller.set_target(target_pose)
 
     def to_action_dict(self, action: np.ndarray):
         """Convert a flat action to a dict of actions."""
