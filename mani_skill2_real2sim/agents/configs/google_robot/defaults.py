@@ -366,6 +366,63 @@ class GoogleRobotManualTunedIntrinsicConfig(GoogleRobotDefaultConfig):
 class GoogleRobotStaticBaseConfig(GoogleRobotDefaultConfig):
     def __init__(self, **kwargs) -> None:
         super().__init__(mobile_base=False, **kwargs)
+
+    @property
+    def cameras(self):
+        print("Using default camera config for GoogleRobotStaticBaseConfig")
+        print("Arguments:", self.__dict__)
+        return CameraConfig(
+            uid="overhead_camera",
+            p=[0, 0, 0],
+            q=[
+                0.5,
+                0.5,
+                -0.5,
+                0.5,
+            ],  # SAPIEN uses ros camera convention; the rotation matrix of link_camera's pose is in opencv convention, so we need to transform it to ros convention
+            width=640,
+            height=512,
+            actor_uid="link_camera",
+            intrinsic=np.array([[425.0, 0, 320.0], [0, 425.0, 256.0], [0, 0, 1]]),
+            )
+
+
+class GoogleRobotStaticBaseGripperCamConfig(GoogleRobotDefaultConfig):
+    def __init__(self, **kwargs) -> None:
+        super().__init__(mobile_base=False, **kwargs)
+
+    @property
+    def cameras(self):
+        print("Using gripper camera config for GoogleRobotStaticBaseGripperCamConfig")
+        return [CameraConfig(
+            uid="overhead_camera",
+            p=[0, 0, 0],
+            q=[
+                0.5,
+                0.5,
+                -0.5,
+                0.5,
+            ],  # SAPIEN uses ros camera convention; the rotation matrix of link_camera's pose is in opencv convention, so we need to transform it to ros convention
+            width=640,
+            height=512,
+            actor_uid="link_camera",
+            intrinsic=np.array([[425.0, 0, 320.0], [0, 425.0, 256.0], [0, 0, 1]]),
+            ),
+            CameraConfig(
+            uid="gripper_camera",
+            p=[0, 0, 0],
+            q=[
+                0.5,
+                0.5,
+                -0.5,
+                0.5,
+            ],  # SAPIEN uses ros camera convention; the rotation matrix of link_camera's pose is in opencv convention, so we need to transform it to ros convention
+            width=640,
+            height=512,
+            actor_uid="link_gripper",
+            intrinsic=np.array([[425.0, 0, 320.0], [0, 425.0, 256.0], [0, 0, 1]]),
+        )]
+
         
         
 class GoogleRobotStaticBaseHalfFingerFrictionConfig(GoogleRobotStaticBaseConfig):

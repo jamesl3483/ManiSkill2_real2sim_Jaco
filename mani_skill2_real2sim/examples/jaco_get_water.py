@@ -47,6 +47,9 @@ python mani_skill2_real2sim/examples/jaco_get_water.py -e GetWaterCustomInScene-
 
 import argparse
 from operator import pos
+import sys
+import ast
+
 
 import gymnasium as gym
 import numpy as np
@@ -66,6 +69,23 @@ MS1_ENV_IDS = [
 ]
 
 
+def parse_list_argument(arg_str):
+    """
+    Convert a string like "[1.0, 2.0, 3.0]" or "1.0 2.0 3.0" to a list of floats.
+    """
+    try:
+        # Try parsing as Python literal (e.g., "[1.0, 2.0]")
+        return ast.literal_eval(arg_str)
+    except:
+        # Fallback to space-separated float list
+        return [float(x) for x in arg_str.split()]
+
+def parse_bool_list(arg_str):
+    try:
+        return ast.literal_eval(arg_str)
+    except:
+        return [x.lower() == "true" for x in arg_str.split()]
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", "--env-id", type=str, required=True)
@@ -75,7 +95,22 @@ def parse_args():
     parser.add_argument("--render-mode", type=str, default="cameras")
     parser.add_argument("--add-segmentation", action="store_true")
     parser.add_argument("--enable-sapien-viewer", action="store_true")
+    parser.add_argument("--model_ids", default=["a_cups"])
+    parser.add_argument("--model_scales", default=[1.0], help="List of scales corresponding to each model")
+    parser.add_argument("--init_xys",  default=[-0.09, 0.0], help="Flat list of x, y values for each object's initial position, e.g. --init_xys -0.09 0.0 -0.09 0.1")
+    parser.add_argument("--init_rots",  default=[1, 0, 0, 0], help="Flat list of quaternion rotations for each object (e.g. 3 objects → 12 values)")
+    parser.add_argument("--rand_rot_z", default=[False], help="Randomize Z-axis rotation for each object (e.g. --rand_rot_z False False True)")
+    parser.add_argument("--rand_axis_rot_range",  default=[0.0], help="Random axis rotation range for each object")
+
     args, opts = parser.parse_known_args()
+
+    print("args.init_xys:", args.init_xys)
+    print("args.init_rots:", args.init_rots)
+    print("args.rand_rot_z:", args.rand_rot_z)
+    print("args.rand_axis_rot_range:", args.rand_axis_rot_range)
+    print("args.model_ids:", args.model_ids)
+    print("args.model_scales:", args.model_scales)
+
 
     # Parse env kwargs
     print("opts:", opts)
@@ -83,6 +118,30 @@ def parse_args():
     env_kwargs = dict((x, eval_str(y)) for x, y in zip(opts[0::2], opts[1::2]))
     print("env_kwargs:", env_kwargs)
     args.env_kwargs = env_kwargs
+
+    # Convert string arguments to lists
+    args.model_ids = parse_list_argument(args.model_ids)
+    args.model_scales = parse_list_argument(args.model_scales)
+    args.init_xys = parse_list_argument(args.init_xys)
+    args.init_rots = parse_list_argument(args.init_rots)
+    args.rand_rot_z = parse_bool_list(args.rand_rot_z)
+    args.rand_axis_rot_range = parse_list_argument(args.rand_axis_rot_range)
+    num_models = len(args.model_ids)
+    # --- Check all lists are the same length (number of models) ---
+    expected_lengths = {
+        "model_scales": len(args.model_scales),
+        "init_xys": len(args.init_xys),
+        "init_rots": len(args.init_rots),
+        "rand_rot_z": len(args.rand_rot_z),
+        "rand_axis_rot_range": len(args.rand_axis_rot_range),
+    }
+
+    for name, length in expected_lengths.items():
+        if length != num_models:
+            raise ValueError(
+                f"Length mismatch: {name} has {length} entries, but model_ids has {num_models}."
+            )
+
 
     return args
 
@@ -107,7 +166,8 @@ def main():
                 "render_camera": dict(p=pose.p, q=pose.q)
             }
 
-    env: BaseEnv = gym.make(
+
+    env: BaseEnv = gym.make( # create the environment with incorrect arguments
         args.env_id,
         obs_mode=args.obs_mode,
         reward_mode=args.reward_mode,
@@ -132,15 +192,23 @@ def main():
         )
         init_rot_quat = [0, 0, 0, 1]
         init_xy = [0.452, -0.609] # Change the robot's position
-        env_reset_options = {
-            "obj_init_options": {"init_xy": [-.09, 0.0]}, # Change the object's position
+        #TODO: Change so that this is a list of a dictionary
+
+        env_reset_options = { # full initialization options
+            "model_id": args.model_ids,  # Change the object model ids
+            "model_scale": args.model_scales,  # Change the object scale
+            "obj_init_options": {"init_xy": args.init_xys,
+                                 "init_rot_quat": args.init_rots,
+                                 "init_rand_rot_z": args.rand_rot_z,
+                                 "init_rand_axis_rot_range": args.rand_axis_rot_range,
+                                 },
             "robot_init_options": {
                 "init_xy": init_xy,
                 "init_rot_quat": init_rot_quat,
-            },
-        }
-
-    obs, info = env.reset(options=env_reset_options)
+            }}
+    print("environment:", env)
+    print("env_reset_options:", env_reset_options)
+    obs, info = env.reset(options=env_reset_options) # reset the environment with the options specified above
     print("Reset info:", info)
     print("Instruction:", env.get_language_instruction())
     after_reset = True

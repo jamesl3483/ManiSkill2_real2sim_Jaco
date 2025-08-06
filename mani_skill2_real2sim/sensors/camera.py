@@ -142,7 +142,7 @@ class Camera:
                 self.actor = get_entity_by_name(articulation.get_links(), actor_uid)
             if self.actor is None:
                 raise RuntimeError(f"Mount actor ({actor_uid}) is not found")
-
+        print(f"Adding camera {camera_cfg.uid} to actor {actor_uid if actor_uid else 'None'}")
         # Add camera
         if self.actor is None:
             self.camera = scene.add_camera(

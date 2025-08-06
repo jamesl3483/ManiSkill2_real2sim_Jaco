@@ -170,8 +170,10 @@ class BaseEnv(gym.Env):
         self._configure_agent()
         self._configure_cameras()
         self._configure_render_cameras()
+        print("BaseEnv._camera_cfgs:", self._camera_cfgs)
         # Override camera configurations
         if camera_cfgs is not None:
+            print("updating camera_cfgs with", camera_cfgs)
             update_camera_cfgs_from_dict(self._camera_cfgs, camera_cfgs)
         if render_camera_cfgs is not None:
             update_camera_cfgs_from_dict(self._render_camera_cfgs, render_camera_cfgs)
@@ -354,7 +356,7 @@ class BaseEnv(gym.Env):
         This function should clear the previous scene, and create a new one.
         """
         self._clear()
-
+        print("BaseEnv.reconfigure: clearing the scene and reconfiguring...")
         self._setup_scene()
         self._load_agent()
         self._load_actors()

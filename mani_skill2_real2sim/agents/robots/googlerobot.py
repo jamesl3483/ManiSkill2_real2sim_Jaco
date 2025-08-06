@@ -231,6 +231,38 @@ class GoogleRobotStaticBase(GoogleRobot):
         assert active_joints[0].name == "joint_torso"
 
 
+
+
+class GoogleRobotStaticBaseGripperCam(GoogleRobot):
+    _config: defaults.GoogleRobotStaticBaseGripperCamConfig
+
+    @classmethod
+    def get_default_config(cls):
+        return defaults.GoogleRobotStaticBaseGripperCamConfig()
+
+    def __init__(
+        self, scene, control_freq, control_mode=None, fix_root_link=True, config=None
+    ):
+        if control_mode is None:  # if user did not specify a control_mode
+            control_mode = "arm_pd_ee_delta_pose_align_interpolate_by_planner_gripper_pd_joint_target_delta_pos_interpolate_by_planner"
+        super().__init__(
+            scene,
+            control_freq,
+            control_mode=control_mode,
+            fix_root_link=fix_root_link,
+            config=config,
+        )
+
+    def _after_init(self):
+        super()._after_init()
+
+        # Sanity check
+        active_joints = self.robot.get_active_joints()
+        assert active_joints[0].name == "joint_torso"
+
+
+
+
 class GoogleRobotStaticBaseHalfFingerFriction(GoogleRobotStaticBase):
     _config: defaults.GoogleRobotStaticBaseHalfFingerFrictionConfig
 

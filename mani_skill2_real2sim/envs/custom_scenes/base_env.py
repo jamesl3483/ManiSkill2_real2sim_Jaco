@@ -10,11 +10,7 @@ import cv2
 from mani_skill2_real2sim import ASSET_DIR, format_path
 from mani_skill2_real2sim.utils.io_utils import load_json
 from mani_skill2_real2sim.agents.base_agent import BaseAgent
-from mani_skill2_real2sim.agents.robots.googlerobot import (
-    GoogleRobotStaticBase,
-    GoogleRobotStaticBaseWorseControl1, GoogleRobotStaticBaseWorseControl2, GoogleRobotStaticBaseWorseControl3,
-    GoogleRobotStaticBaseHalfFingerFriction, GoogleRobotStaticBaseQuarterFingerFriction, GoogleRobotStaticBaseOneEighthFingerFriction, GoogleRobotStaticBaseTwiceFingerFriction
-)
+from mani_skill2_real2sim.agents.robots.googlerobot import *
 from mani_skill2_real2sim.agents.robots.widowx import WidowX, WidowXBridgeDatasetCameraSetup, WidowXSinkCameraSetup
 from mani_skill2_real2sim.agents.robots.panda import Panda
 from mani_skill2_real2sim.agents.robots.jaco import Jaco, JacoBridgeDatasetCameraSetup, JacoSinkCameraSetup
@@ -29,6 +25,7 @@ from mani_skill2_real2sim.utils.sapien_utils import (
 
 class CustomSceneEnv(BaseEnv):
     SUPPORTED_ROBOTS = {"google_robot_static": GoogleRobotStaticBase, 
+                        "google_robot_grip_camera": GoogleRobotStaticBaseGripperCam,
                         "jaco": Jaco,
                         "jaco_bridge_dataset_camera_setup": JacoBridgeDatasetCameraSetup,
                         "jaco_sink_camera_setup": JacoSinkCameraSetup,
@@ -45,14 +42,14 @@ class CustomSceneEnv(BaseEnv):
                         "google_robot_static_one_eighth_finger_friction": GoogleRobotStaticBaseOneEighthFingerFriction,
                         "google_robot_static_twice_finger_friction": GoogleRobotStaticBaseTwiceFingerFriction,
     }
-    agent: Union[GoogleRobotStaticBase, Jaco, WidowX, Panda]
+    agent: Union[GoogleRobotStaticBase, GoogleRobotStaticBaseGripperCam, Jaco, WidowX, Panda]
     DEFAULT_ASSET_ROOT: str
     DEFAULT_SCENE_ROOT: str
     DEFAULT_MODEL_JSON: str
     
     def __init__(
             self, 
-            robot: str = "google_robot_static", 
+            robot: str = "google_robot_grip_camera", 
             rgb_overlay_path: Optional[str] = None, 
             rgb_overlay_cameras: list = [], 
             rgb_overlay_mode: str = 'background',
@@ -147,6 +144,8 @@ class CustomSceneEnv(BaseEnv):
         if self.scene_name is None:
             if 'google_robot_static' in self.robot_uid:
                 scene_path = str(self.scene_root / "stages/google_pick_coke_can_1_v4.glb") # hardcoded for now
+            elif 'google_robot' in self.robot_uid:
+                scene_path = str(self.scene_root / "stages/google_pick_coke_can_1_v4.glb") # hardcoded for now
             elif 'widowx' in self.robot_uid:
                 scene_path = str(self.scene_root / "stages/bridge_table_1_v1.glb") # hardcoded for now
             elif 'jaco' in self.robot_uid:
@@ -160,7 +159,7 @@ class CustomSceneEnv(BaseEnv):
         
         # scene offset and pose
         if self.scene_offset is None:
-            if 'google_robot_static' in self.robot_uid:
+            if 'google_robot' in self.robot_uid:
                 scene_offset = np.array([-1.6616, -3.0337, 0.0]) # corresponds to the default offset of google_pick_coke_can_1_v4.glb
             elif 'widowx' in self.robot_uid:
                 scene_offset = np.array([-2.0634, -2.8313, 0.0])# corresponds to the default offset of bridge_table_1_v1.glb
@@ -269,7 +268,7 @@ class CustomSceneEnv(BaseEnv):
     def _initialize_agent(self):
         # initialize agent joint position and 6d pose
         
-        if "google_robot_static" in self.robot_uid:
+        if "google_robot" in self.robot_uid:
             qpos = np.array(
                 [-0.2639457174606611,
                 0.0831913360274175,

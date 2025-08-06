@@ -1,3 +1,25 @@
+"""
+Multi-object version of GetWaterInSceneEnv.
+
+Key additions
+-------------
+* `self.objs` (list of actors) instead of a single `self.obj`
+* `_set_models`, `_load_models`, `_initialize_actors` updated for N objects
+* Evaluation checks contact for *all* objects
+* Reset options:
+    options = {
+        "model_ids": ["cup", "mug", "bottle"],      # list of IDs in your model DB
+        "model_scales": {"cup":1.0, "mug":0.8},     # per-object scale (optional)
+        "obj_init_options": {                       # optional per-object init opts
+            "multi_obj_init": [
+                {"init_xy": [0.10, 0.10]},
+                {"init_xy": [0.20, 0.05]},
+                {"init_xy": [0.30,-0.02], "init_rand_rot_z":True},
+            ]
+        }
+    }
+"""
+
 from collections import OrderedDict
 from typing import List, Optional
 
@@ -15,260 +37,275 @@ from mani_skill2_real2sim.utils.sapien_utils import (
     get_pairwise_contacts,
     compute_total_impulse,
 )
+from mani_skill2_real2sim.sensors.camera import CameraConfig
 
 from .base_env import CustomOtherObjectsInSceneEnv, CustomSceneEnv
 from .open_door_in_scene import OpenDoorInSceneEnv
 
+# ---- import your base classes ----------------
+from .open_door_in_scene import OpenDoorInSceneEnv
+
 
 class GetWaterInSceneEnv(OpenDoorInSceneEnv):
+    """Get-Water environment that can spawn multiple random objects."""
 
+    # ------------- INITIALISATION -------------------------------------------------
     def __init__(
         self,
         force_advance_subtask_time_steps: int = 100,
         **kwargs,
     ):
-        self.model_id = None
-        self.model_scale = None
-        self.model_bbox_size = None
-        self.obj = None
-        self.obj_init_options = {}
+        # --- per-object state ---
+        self.objs: List[sapien.Actor] = []
+        self.model_ids: List[str] = []
+        self.model_scales: List[float] = []
+        self.model_bbox_sizes: List[Optional[np.ndarray]] = []
+        self.obj_init_options: dict[str, Any] = {}
+        self.obj_init_options_list: List[dict[str, Any]] = []
 
+        # misc
         self.force_advance_subtask_time_steps = force_advance_subtask_time_steps
-
         super().__init__(**kwargs)
 
+    # ------------- SCENE CONFIG ---------------------------------------------------
     def _get_default_scene_config(self):
-        scene_config = super()._get_default_scene_config()
-        scene_config.contact_offset = (
-            0.005
-        )  # avoid "false-positive" collisions with other objects
-        return scene_config
-    
-    def _set_model(self, model_id, model_scale):
-        """Set the model id and scale. If not provided, choose one randomly from self.model_ids."""
-        reconfigure = False
+        cfg = super()._get_default_scene_config()
+        cfg.contact_offset = 0.005  # avoid “false-positive” collisions
+        return cfg
 
-        if model_id is None:
-            model_id = random_choice(self.model_ids, self._episode_rng)
-        if model_id != self.model_id:
-            self.model_id = model_id
-            reconfigure = True
+    # ------------- MODEL SELECTION ------------------------------------------------
+    def _set_model(
+        self,
+        model_ids: Optional[List[str]],
+        model_scales: Optional[dict[str, float]],
+    ) -> bool:
+        """
+        Decide which models & scales to use this episode.
+        Returns True if we need to recreate actors (reconfigure).
+        """
+        if model_ids is None:
+            # pick one random object if user didn’t specify anything
+            model_ids = [random_choice(list(self.model_db.keys()), self._episode_rng)]
 
-        if model_scale is None:
-            model_scales = self.model_db[self.model_id].get("scales")
-            if model_scales is None:
-                model_scale = 1.0
+        reconfigure = (model_ids != self.model_ids)
+        self.model_ids = model_ids
+        self.model_scales = []
+        self.model_bbox_sizes = []
+
+        for mid in self.model_ids:
+            # scale
+            scale = None
+            if model_scales and mid in model_scales:
+                scale = model_scales[mid]
             else:
-                model_scale = random_choice(model_scales, self._episode_rng)
-        if model_scale != self.model_scale:
-            self.model_scale = model_scale
-            reconfigure = True
+                avail = self.model_db[mid].get("scales")
+                scale = random_choice(avail, self._episode_rng) if avail else 1.0
+            self.model_scales.append(scale)
 
-        model_info = self.model_db[self.model_id]
-        if "bbox" in model_info:
-            bbox = model_info["bbox"]
-            bbox_size = np.array(bbox["max"]) - np.array(bbox["min"])
-            self.model_bbox_size = bbox_size * self.model_scale
-        else:
-            self.model_bbox_size = None
+            # bbox size
+            if "bbox" in self.model_db[mid]:
+                bbox = self.model_db[mid]["bbox"]
+                size = (np.array(bbox["max"]) - np.array(bbox["min"])) * scale
+                self.model_bbox_sizes.append(size)
+            else:
+                self.model_bbox_sizes.append(None)
 
         return reconfigure
 
+    # ------------- MODEL CREATION -------------------------------------------------
     def _load_model(self):
-        density = self.model_db[self.model_id].get("density", 1000)
-
-        self.obj = self._build_actor_helper(
-            self.model_id,
-            self._scene,
-            scale=self.model_scale,
-            density=density,
-            physical_material=self._scene.create_physical_material(
-                static_friction=self.obj_static_friction,
-                dynamic_friction=self.obj_dynamic_friction,
-                restitution=0.0,
-            ),
-            root_dir=self.asset_root,
-        )
-        self.obj.name = self.model_id
-
-    def _load_actors(self):
-        super()._load_actors()
-        self._load_model()
-        self.obj.set_damping(0.1, 0.1)
-
-    def _initialize_actors(self):
-        # The object will fall from a certain initial height
-        obj_init_xy = self.obj_init_options.get("init_xy", None)
-        if obj_init_xy is None:
-            obj_init_xy = self._episode_rng.uniform([-0.10, -0.00], [-0.05, 0.1], [2])
-        obj_init_z = self.obj_init_options.get("init_z", self.scene_table_height)
-        if obj_init_z is None:
-            obj_init_z = 1.5 
-        obj_init_z = obj_init_z + 0.5  # let object fall onto the table
-        obj_init_rot_quat = self.obj_init_options.get("init_rot_quat", [1, 0, 0, 0])
-        p = np.hstack([obj_init_xy, obj_init_z])
-        q = obj_init_rot_quat
-
-        # Rotate along z-axis
-        if self.obj_init_options.get("init_rand_rot_z", False):
-            ori = self._episode_rng.uniform(0, 2 * np.pi)
-            q = qmult(euler2quat(0, 0, ori), q)
-
-        # Rotate along a random axis by a small angle
-        if (
-            init_rand_axis_rot_range := self.obj_init_options.get(
-                "init_rand_axis_rot_range", 0.0
+        """Create SAPIEN actors for every model in self.model_ids."""
+        self.objs.clear()
+        # print("Loading objects:", self.model_ids)
+        for mid, scale in zip(self.model_ids, self.model_scales):
+            density = self.model_db[mid].get("density", 1000)
+            obj = self._build_actor_helper(
+                mid,
+                self._scene,
+                scale=scale,
+                density=density,
+                physical_material=self._scene.create_physical_material(
+                    static_friction=self.obj_static_friction,
+                    dynamic_friction=self.obj_dynamic_friction,
+                    restitution=0.0,
+                ),
+                root_dir=self.asset_root,
             )
-        ) > 0:
-            axis = self._episode_rng.uniform(-1, 1, 3)
-            axis = axis / max(np.linalg.norm(axis), 1e-6)
-            ori = self._episode_rng.uniform(0, init_rand_axis_rot_range)
-            q = qmult(q, axangle2quat(axis, ori, True))
-        self.obj.set_pose(sapien.Pose(p, q))
+            obj.name = mid
 
-        # Move the robot far away to avoid collision
-        # The robot should be initialized later in _initialize_agent (in base_env.py)
+            # print("Loaded object:", mid, "with scale", scale)
+            obj.set_damping(0.1, 0.1)
+            self.objs.append(obj)
+
+    # ------------- LOAD ACTORS ----------------------------------------------------
+    def _load_actors(self):
+        super()._load_actors()      # loads robot + drawer
+        # print("GetWaterInSceneEnv._load_actors")
+        self._load_model()         # loads multiple objects
+
+    # ------------- INITIALISE ACTORS ---------------------------------------------
+    def _initialize_actors(self):
+        """
+        * Randomly places each object above the table.
+        * Robot moved away; actors settled.
+        """
+        # initialise parent class first (moves robot etc.)
+        super()._initialize_actors()
+
+        # -------- per-object initialisation --------
+        xy_list = self.obj_init_options.get(
+            "init_xy",
+            [[0.0, 0.0]] * len(self.objs),
+        )
+        # print("GetWaterInSceneEnv._initialize_actors: placing objects at", xy_list)
+        quat_list = self.obj_init_options.get("init_rot_quat", [[1, 0, 0, 0]] * len(self.objs))
+        rand_rot_z_list = self.obj_init_options.get("init_rand_rot_z", [False, False, False])
+        rand_axis_rot_range_list = self.obj_init_options.get("init_rand_axis_rot_range", [0.0, 0.0, 0.0])
+
+        for i, obj in enumerate(self.objs):
+            # position
+            xy = xy_list[i]
+            # print("GetWaterInSceneEnv._initialize_actors: placing object at", xy)
+            z = self.obj_init_options.get("init_z", self.scene_table_height) + 0.5
+            # print("object z-height:", z)
+            quat = quat_list[i]
+            p = np.hstack([xy, z])
+            q = quat
+
+            # random z-rotation
+            if rand_rot_z_list[i]:
+                ori = self._episode_rng.uniform(0, 2 * np.pi)
+                q = qmult(euler2quat(0, 0, ori), q)
+
+            # random small axis rotation
+            rot_rng = rand_axis_rot_range_list[i]
+            if rot_rng > 0:
+                axis = self._episode_rng.uniform(-1, 1, 3)
+                axis /= max(np.linalg.norm(axis), 1e-6)
+                angle = self._episode_rng.uniform(0, rot_rng)
+                q = qmult(q, axangle2quat(axis, angle, True))
+
+            obj.set_pose(sapien.Pose(p, q))
+            obj.lock_motion(0, 0, 0, 1, 1, 0)  # lock rot X/Y
+
+        # move robot far away; let objects settle
         self.agent.robot.set_pose(sapien.Pose([-10, 0, 0]))
-
-        # Lock rotation around x and y to let the target object fall onto the table
-        self.obj.lock_motion(0, 0, 0, 1, 1, 0)
         self._settle(0.5)
 
-        # Unlock motion
-        self.obj.lock_motion(0, 0, 0, 0, 0, 0)
-        # NOTE(jigu): Explicit set pose to ensure the actor does not sleep
-        self.obj.set_pose(self.obj.pose)
-        self.obj.set_velocity(np.zeros(3))
-        self.obj.set_angular_velocity(np.zeros(3))
+        # unlock and settle again
+        for obj in self.objs:
+            obj.lock_motion(0, 0, 0, 0, 0, 0)
+            obj.set_velocity(np.zeros(3))
+            obj.set_angular_velocity(np.zeros(3))
         self._settle(0.5)
 
-        # Some objects need longer time to settle
-        lin_vel = np.linalg.norm(self.obj.velocity)
-        ang_vel = np.linalg.norm(self.obj.angular_velocity)
-        if lin_vel > 1e-3 or ang_vel > 1e-2:
-            self._settle(1.5)
-
-        # Record the object height after it settles
-        self.obj_height_after_settle = self.obj.pose.p[2]
-
+    # ------------- RESET ----------------------------------------------------------
     def reset(self, seed=None, options=None):
-        print("reseting GetWaterInSceneEnv")
         if options is None:
-            options = dict()
+            options = {}
         options = options.copy()
         self.set_episode_rng(seed)
+        # print("options:", options)
 
-        # set objects
+        # parse options
         self.obj_init_options = options.get("obj_init_options", {})
-        model_scale = options.get("model_scale", None)
-        model_id = options.get("model_id", None)
+        # print("GetWaterInSceneEnv.reset: obj_init_options", self.obj_init_options)
+        model_ids = options.get("model_id")
+        # print("GetWaterInSceneEnv.reset: model_id", model_ids)
+        model_scales = options.get("model_scales")
+
         reconfigure = options.get("reconfigure", False)
-        _reconfigure = self._set_model(model_id, model_scale)
-        reconfigure = _reconfigure or reconfigure
+        if self._set_model(model_ids, model_scales):
+            reconfigure = True
         options["reconfigure"] = reconfigure
 
+        # run parent reset (loads/initialises everything)
         obs, info = super().reset(seed=self._episode_seed, options=options)
-        self.drawer_link: sapien.Link = get_entity_by_name(
+
+        self.drawer_link = get_entity_by_name(
             self.art_obj.get_links(), f"simple_{self.drawer_id}"
         )
-        # print(f"drawer link: {self.drawer_link.name}")
-        # print(f"drawer link collision shapes: {self.drawer_link.get_collision_shapes()}")
-        # Get the first collision shape of the drawer link
-
-
         self.drawer_collision = self.drawer_link.get_collision_shapes()[0]
-
+        # self._cameras()
         return obs, info
 
-    def _additional_prepackaged_config_reset(self, options):
-        # use prepackaged evaluation configs under visual matching setup
-        overlay_ids = ["a0", "b0", "c0"]
-        rgb_overlay_paths = [
-            str(ASSET_DIR / f"real_inpainting/open_drawer_{i}.png") for i in overlay_ids
-        ]
-        robot_init_xs = [0.644, 0.652, 0.665]
-        robot_init_ys = [-0.179, 0.009, 0.224]
-        robot_init_rotzs = [-0.03, 0, 0]
-        idx_chosen = self._episode_rng.choice(len(overlay_ids))
-
-        options["robot_init_options"] = {
-            "init_xy": [robot_init_xs[idx_chosen], robot_init_ys[idx_chosen]],
-            "init_rot_quat": (
-                sapien.Pose(q=euler2quat(0, 0, robot_init_rotzs[idx_chosen]))
-                * sapien.Pose(q=[0, 0, 0, 1])
-            ).q,
-        }
-        self.rgb_overlay_path = rgb_overlay_paths[idx_chosen]
-        self.rgb_overlay_img = (
-            cv2.cvtColor(cv2.imread(rgb_overlay_paths[idx_chosen]), cv2.COLOR_BGR2RGB)
-            / 255
-        )
-        new_urdf_version = self._episode_rng.choice(
-            [
-                "",
-                "recolor_tabletop_visual_matching_1",
-                "recolor_tabletop_visual_matching_2",
-                "recolor_cabinet_visual_matching_1",
-            ]
-        )
-        if new_urdf_version != self.urdf_version:
-            self.urdf_version = new_urdf_version
-            self._configure_agent()
-            return True
-        return False
-
+    # ------------- EPISODE STATS / EVAL ------------------------------------------
     def _initialize_episode_stats(self):
-        self.cur_subtask_id = 0 # 0: open drawer, 1: place object into drawer
+        self.cur_subtask_id = 0  # 0=open drawer, 1=place objs
         self.episode_stats = OrderedDict(
             qpos=0.0, is_drawer_open=False, has_contact=0
         )
 
     def evaluate(self, **kwargs):
-        # Drawer
+        # drawer progress
         qpos = self.art_obj.get_qpos()[self.joint_idx]
         self.episode_stats["qpos"] = qpos
-        is_drawer_open = qpos >= 0.15
-        self.episode_stats["is_drawer_open"] = self.episode_stats["is_drawer_open"] or is_drawer_open
+        self.episode_stats["is_drawer_open"] |= qpos >= 0.15
 
-        # Check whether the object contacts with the drawer
-        contact_infos = get_pairwise_contacts(
-            self._scene.get_contacts(),
-            self.obj,
-            self.drawer_link,
-            collision_shape1=self.drawer_collision,
+        # contact check for every object
+        for obj in self.objs:
+            infos = get_pairwise_contacts(
+                self._scene.get_contacts(),
+                obj,
+                self.drawer_link,
+                collision_shape1=self.drawer_collision,
+            )
+            if np.linalg.norm(compute_total_impulse(infos)) > 1e-6:
+                self.episode_stats["has_contact"] += 1
+
+        success = (
+            self.cur_subtask_id == 1
+            and qpos >= 0.05
+            and self.episode_stats["has_contact"] >= len(self.objs)
         )
-        total_impulse = compute_total_impulse(contact_infos)
-        has_contact = np.linalg.norm(total_impulse) > 1e-6
-        self.episode_stats["has_contact"] += has_contact
-
-        success = (self.cur_subtask_id == 1) and (qpos >= 0.05) and (self.episode_stats["has_contact"] >= 1)
-
         return dict(success=success, episode_stats=self.episode_stats)
 
+    # ------------- SUBTASK LOGIC --------------------------------------------------
     def advance_to_next_subtask(self):
         self.cur_subtask_id = 1
 
     def step(self, action):
+        # force advance after certain steps
         if self._elapsed_steps >= self.force_advance_subtask_time_steps:
-            # force advance to the next subtask
             self.advance_to_next_subtask()
         return super().step(action)
-    
+
     def get_language_instruction(self, **kwargs):
         if self.cur_subtask_id == 0:
             return f"open {self.drawer_id} drawer"
         else:
-            model_name = self._get_instruction_obj_name(self.model_id)
-            return f"place {model_name} into {self.drawer_id} drawer"
-        
+            names = [self._get_instruction_obj_name(mid) for mid in self.model_ids]
+            obj_str = ", ".join(names)
+            return f"place {obj_str} into {self.drawer_id} drawer"
+
     def is_final_subtask(self):
         return self.cur_subtask_id == 1
 
+    @property
+    def cameras(self):
+        print("GetWaterInSceneEnv.cameras: adding gripper camera")
+        cams = super().cameras          # get existing camera list
+        cams.append(                    # add a new one that follows the gripper
+            CameraConfig(
+                uid        = "gripper_cam",
+                p          = [0.0, 0.0, 0.05],          # 5 cm in front of link origin
+                q          = [0.7071, 0.0, 0.7071, 0.0],# face forward
+                width      = 640,
+                height     = 512,
+                actor_uid  = "link_gripper",                 # ← name of the robot link
+                intrinsic  = np.array(
+                    [[425.0, 0, 320.0],
+                     [0, 425.0, 256.0],
+                     [0,   0,   1  ]]),
+            )
+        )
+        return cams
 
+
+
+# ------------------ REGISTRATION EXAMPLE ----------------------------------------
 @register_env("GetWaterInScene-v0", max_episode_steps=200)
-class GetWaterTopInSceneEnv(
-    GetWaterInSceneEnv, CustomOtherObjectsInSceneEnv
-):
+class GetWaterTopInSceneEnv(GetWaterInSceneEnv, CustomOtherObjectsInSceneEnv):
     DEFAULT_MODEL_JSON = "info_pick_custom_baked_tex_v1.json"
     drawer_ids = ["top", "middle", "bottom"]
 
@@ -276,5 +313,4 @@ class GetWaterTopInSceneEnv(
 @register_env("GetWaterCustomInScene-v0", max_episode_steps=200)
 class GetWaterCustomInSceneEnv(GetWaterTopInSceneEnv):
     drawer_ids = ["cabinet"]
-
 
